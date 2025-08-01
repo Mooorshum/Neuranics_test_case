@@ -1,0 +1,31 @@
+OutputFormat = OVF2_TEXT
+
+Nx :=
+Ny :=
+Nz :=
+
+SetGridSize(Nx, Ny, Nz)
+SetCellSize(1, 1, 1)
+Msat = 
+Aex = 
+alpha = 
+m = RandomMag()
+
+mask := newVectorMask(Nx, Ny, Nz)
+for i:=0; i<Nx; i++{
+    for j:=0; j<Ny; j++{
+        for k:=0; k<Nz; k++{
+            r := index2coord(i, j, 0)
+            x := r.X()
+            y := r.Y()
+            z := r.Z()
+            mask.setVector(i, j, k, vector(x, y, z))
+        }
+    }
+}
+B_ext.add(mask,1)
+J.add(mask, 1)
+
+saveas(m, "m")
+saveas(B_ext, "B_ext")
+saveas(J, "J")
