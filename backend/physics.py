@@ -48,5 +48,5 @@ def compute_B_oe(j_tunnel_data, simulation_settings):
                         # Summing up contribution across all other cells (Note that fields are in T units in mumax)
                         B_oe_cell_total_x += B_oe_x * mu0
                         B_oe_cell_total_y += B_oe_y * mu0
-            B_oe_data[i][j] = [B_oe_cell_total_x, B_oe_cell_total_y, 0]
+            B_oe_data[i][j] = [0, 0, 0] #[B_oe_cell_total_x, B_oe_cell_total_y, 0]
     return B_oe_data

@@ -1,3 +1,5 @@
+import numpy
+
 from backend.simulation import run_simulation
 from backend.data_visualization import plot_results
 
@@ -12,12 +14,12 @@ simulation_settings['Nx'] = 16
 simulation_settings['Ny'] = 16
 simulation_settings['Nz'] = 1
 
-# Free layer properties
-simulation_settings['Msat'] = 700e3
-simulation_settings['Aex'] = 13e-12
-simulation_settings['alpha'] = 0.02
-simulation_settings['Ku1'] = 0.59e6
-simulation_settings['anisU'] = 'vector(0, 1, 0)'
+# Free layer properties (TAKEN FROM https://doi.org/10.1016/j.jmmm.2021.167853)
+simulation_settings['Msat'] = 1.2e6
+simulation_settings['Aex'] = 1e-11
+simulation_settings['alpha'] = 0.05
+simulation_settings['Ku1'] = 0.9e6
+simulation_settings['anisU'] = 'vector(1e-6, 1, 0)'
 
 # Reference layer properties
 simulation_settings['lambda'] = 1
@@ -33,11 +35,13 @@ simulation_settings['m_reference'] = [0, 1, 0]
 simulation_settings['m_free_start_uniform'] = [-1, 0, 0]
 
 # External field amplitude
-simulation_settings['B_ext_uniform'] = [0, 10e-3, 0]
+simulation_settings['B_ext_uniform'] = [
+    [0, B_ext_y, 0] for B_ext_y in numpy.arange(-100e-3, 100e-3, 10e-3)
+]
 
 # Simulation time
-simulation_settings['t_total'] = 0.1e-9
-simulation_settings['t_save_step'] = 1e-12
+simulation_settings['t_total'] = 0.05e-9 # 0.1e-3
+simulation_settings['t_save_step'] = 1e-11
 
 
 """ TUNNEL CURRENT COMPUTATION SETTINGS """
@@ -52,8 +56,8 @@ simulation_settings['R_ap'] = 5000
 
 """ SIMULATION SETTINGS """
 
-# Number of times the MTJ script will be called, with each external field sweep iteration
-simulation_settings['num_iterations'] = 10
+# Number of times the quasi-static MTJ script will be called, with each external field sweep iteration
+simulation_settings['num_iterations'] = 20 #10
 
 
 """ MODULE FOLDERS AND FILENAMES """
@@ -77,8 +81,11 @@ scripts_folders['J_TUNNEL_DATA_FOLDER'] = 'output_data/j_tunnel_iterations'
 """ DATA VISUALIZATION SETTINGS """
 plot_options = {}
 
-plot_options['show_unit_sphere_dynamics'] = True
-plot_options['show_j_tunnel_convergence'] = True
+plot_options['show_convergence'] = False
+plot_options['show_unit_sphere_dynamics'] = False
+plot_options['show_j_tunnel_convergence'] = False
+plot_options['show_j_tunnel_converged'] = True
+
 
 
 """ RUNNING SIMULATION """
