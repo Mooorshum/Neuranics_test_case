@@ -63,10 +63,10 @@ def run_simulation(simulation_settings, scripts_folders):
         )
 
         # Iteratively updating tunnel current and oerted field for fixed external field and calling mumax MTJ script at each iteration
-        num_iterations = simulation_settings['num_iterations']
+        num_iterations = simulation_settings['num_quasi_static_iterations']
         for num_iter in range(num_iterations):
 
-            # Creating ovf file of magnetization in free layer
+            # Creating ovf file for magnetization in free layer
             m_free_data = get_m_free_start_data('m_free_start_data.ovf', simulation_settings, num_iter)
             convert_to_ovf(
                 'm_free_start_data.ovf',
@@ -103,7 +103,7 @@ def run_simulation(simulation_settings, scripts_folders):
                 stderr=subprocess.DEVNULL
             )
 
-            # Replacing previous free layer starting magnetization with this iteration result
+            # Replacing previous free layer starting magnetization with result from this iteration
             output_folder = f'{os.path.splitext(scripts_folders["MTJ_SCRIPT_INSTANCE"])[0]}.out'
             os.remove('m_free_start_data.ovf')
             shutil.copyfile(f'{output_folder}/m_free_start_data.ovf', 'm_free_start_data.ovf')
@@ -137,5 +137,5 @@ def run_simulation(simulation_settings, scripts_folders):
             os.system('cls' if os.name=='nt' else 'clear')
             print(f'COMPUTED:   B_ext sweep {num_sweep_value+1} / {num_sweep_values_total};   quasi-static step {num_iter + 1} / {num_iterations}')
 
-        os.remove('B_ext_data.ovf')
         os.remove('m_free_start_data.ovf')
+        os.remove('B_ext_data.ovf')

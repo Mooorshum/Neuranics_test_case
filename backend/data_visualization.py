@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+
 from .ovf_data_formatting import extract_data
 
 
@@ -43,7 +43,7 @@ def gather_data(simulation_settings, scripts_folders):
             j_tunnel_data_quasi_static_data = extract_data(ovf_path, simulation_settings)
             # Appending simulation iteration result
             j_tunnel_B_ext_sweep_step.append(j_tunnel_data_quasi_static_data)
-            
+
         m_dynamics_full.append(m_dynamics_B_ext_sweep_step)
         j_tunnel_full.append(j_tunnel_B_ext_sweep_step)
 
@@ -53,14 +53,18 @@ def gather_data(simulation_settings, scripts_folders):
 
 
 """ PLOT MAGNETIZATION TRAJECTORY FOR ALL SIMULATION ITERATIONS """
-def plot_average_magnetization_on_unit_sphere(m_dynamics_full):
+def plot_average_magnetization_on_unit_sphere(m_dynamics_full, simulation_settings):
     for B_ext_sweep_step in range(len(m_dynamics_full)):
         m_dynamics_B_ext_sweep_step_values = m_dynamics_full[B_ext_sweep_step]
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-        colors = plt.cm.get_cmap('tab10', len(m_dynamics_B_ext_sweep_step_values))
+        colours = plt.cm.get_cmap('tab10', len(m_dynamics_B_ext_sweep_step_values))
+
+        # Plotting magnetization trajectories
         for j_sim_iter, simulation_steps in enumerate(m_dynamics_B_ext_sweep_step_values):
+            colour = colours(j_sim_iter)
             trajectory = []
+            starting_m_quasi_static_steps = []
             for step_data in simulation_steps:
                 m_array = np.array(step_data).reshape(-1, 3)
                 avg_vector = np.mean(m_array, axis=0)
@@ -71,29 +75,55 @@ def plot_average_magnetization_on_unit_sphere(m_dynamics_full):
                 trajectory.append(unit_vector)
             trajectory = np.array(trajectory)
             ax.plot(trajectory[:, 0], trajectory[:, 1], trajectory[:, 2],
-                    color=colors(j_sim_iter),
+                    color=colour,
                     label=f"Iter {j_sim_iter}")
+            
+            # Plotting starting magnetization at each quasi-static step
+            m_start = trajectory[0]
+            ax.scatter(m_start[0], m_start[1], m_start[2],
+                           color=colour, s=20, edgecolor='k', linewidth=0.5, zorder=5)
+
+        # Drawing unit sphere surface
         u, v = np.linspace(0, 2 * np.pi, 100), np.linspace(0, np.pi, 100)
         x = np.outer(np.cos(u), np.sin(v))
         y = np.outer(np.sin(u), np.sin(v))
         z = np.outer(np.ones_like(u), np.cos(v))
         ax.plot_surface(x, y, z, color='lightgray', alpha=0.2, linewidth=0)
+
+        # Adding external field direction arrow
+        B_ext = np.array(simulation_settings['B_ext_uniform'][B_ext_sweep_step])
+        B_ext_norm = np.linalg.norm(B_ext)
+        if B_ext_norm > 0:
+            B_ext_unit = B_ext / B_ext_norm
+            ax.quiver(0, 0, 0, B_ext_unit[0], B_ext_unit[1], B_ext_unit[2],
+                      color='red', linewidth=2, arrow_length_ratio=0.1, label='B_ext')
+
+        # Adding reference magnetization arrow
+        m_ref = np.array(simulation_settings.get('m_reference', [0, 0, 0]))
+        m_ref_norm = np.linalg.norm(m_ref)
+        if m_ref_norm > 0:
+            m_ref_unit = m_ref / m_ref_norm
+            ax.quiver(0, 0, 0, m_ref_unit[0], m_ref_unit[1], m_ref_unit[2],
+                      color='green', linewidth=2, arrow_length_ratio=0.1, label='m_reference')
+
+        # Setting axis and labels
         ax.set_xlabel('mx')
         ax.set_ylabel('my')
         ax.set_zlabel('mz')
-        ax.set_title(f'Normalized Average Magnetization Trajectory on Unit Sphere; B_ext sweep step {B_ext_sweep_step+1}/{len(m_dynamics_full)}')
+        ax.set_title(f'Normalized Avg. Magnetization on Unit Sphere\nB_ext sweep step {B_ext_sweep_step+1}/{len(m_dynamics_full)}')
         ax.legend(loc='upper left', bbox_to_anchor=(1.1, 1.05))
         ax.grid(False)
         ticks = [-1, 0, 1]
         ax.set_xticks(ticks)
         ax.set_yticks(ticks)
         ax.set_zticks(ticks)
+        ax.set_box_aspect([1, 1, 1])  # Equal aspect ratio
         plt.tight_layout()
         plt.show()
 
 
 """ PLOT TOTAL TUNNEL CURRENT ACROSS MTJ FOR ALL SIMULATION ITERATIONS """
-def plot_average_tunnel_current(j_tunnel_full, simulation_settings):
+def plot_total_tunnel_current(j_tunnel_full, simulation_settings):
     size_x = simulation_settings['size_x']
     size_y = simulation_settings['size_y']
     for B_ext_sweep_step in range(len(j_tunnel_full)):
@@ -140,6 +170,39 @@ def plot_j_tunnel_converged(j_tunnel_converged, simulation_settings):
     plt.show()
 
 
+
+
+def plot_R_MTJ_converged(j_tunnel_converged, simulation_settings):
+    size_x = simulation_settings['size_x']
+    size_y = simulation_settings['size_y']
+    B_ext_uniform = simulation_settings['B_ext_uniform']
+
+    total_R_MTJ = []
+    B_labels = []
+
+    for i, j_converged in enumerate(j_tunnel_converged):
+        j_array = np.array(j_converged).reshape(-1)
+        total_current = np.sum(j_array) * size_x * size_y
+        total_R_MTJ_B_ext_value = simulation_settings['V_bias'] / total_current
+        total_R_MTJ.append(total_R_MTJ_B_ext_value)
+
+        B = B_ext_uniform[i]
+        label = f"Bx={B[0]:.3f}, By={B[1]:.3f}, Bz={B[2]:.3f}"
+        B_labels.append(label)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(len(total_R_MTJ)), total_R_MTJ, marker='o', color='tab:blue')
+    plt.xticks(ticks=range(len(B_labels)), labels=B_labels, rotation=45, ha='right')
+    plt.ylabel('Final Converged MTJ Resistance, Ohms')
+    plt.xlabel('External Magnetic Field B_ext (T)')
+    plt.title('Final MTJ Resistance vs B_ext')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+
+
 def plot_results(simulation_settings, scripts_folders, plot_options):
 
     m_dynamics_full, j_tunnel_full, j_tunnel_converged = gather_data(simulation_settings, scripts_folders)
@@ -149,13 +212,17 @@ def plot_results(simulation_settings, scripts_folders, plot_options):
 
         # Plotting average magnetization dynamics for each LLGS step at each simulation iteration
         if plot_options['show_unit_sphere_dynamics']:
-            plot_average_magnetization_on_unit_sphere(m_dynamics_full)
+            plot_average_magnetization_on_unit_sphere(m_dynamics_full, simulation_settings)
         
         # Plotting total tunnel current flowing through MTJ at each simulation iteration
         if plot_options['show_j_tunnel_convergence']:
-            plot_average_tunnel_current(j_tunnel_full, simulation_settings)
+            plot_total_tunnel_current(j_tunnel_full, simulation_settings)
 
-    # final converged tunnel current at each B_ext sweep step
+    # Final converged tunnel current at each B_ext sweep step
     if plot_options['show_j_tunnel_converged']:
         plot_j_tunnel_converged(j_tunnel_converged, simulation_settings)
+
+    # Final MTJ resistance from converged tunnel current result
+    if plot_options['show_R_MTJ_converged']:
+        plot_R_MTJ_converged(j_tunnel_converged, simulation_settings)
 
