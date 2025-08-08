@@ -24,10 +24,24 @@ lambda =
 Pol = 
 epsilonprime = 
 fixedlayer = 
+FixedLayerPosition = FIXEDLAYER_BOTTOM
+m_reference := 
+
+// Tunnel current parameters
+V_bias := 
+R_p :=
+R_ap :=
 
 // Simulation time
-t_total := 
-t_save_step := 
+t_quasi_static_step := 
+num_quasi_static_steps := 
+
+// Additional constants used for computations
+mu0_SI := 1.256e-6
+
+// Custom output filenames
+m_quasi_static_final_name := 
+j_tunnel_quasi_static_final_name :=
 
 // Initializing settings
 cell_size_x := size_x / Nx
@@ -36,30 +50,99 @@ cell_size_z := size_z / Nz
 setgridsize(Nx, Ny, Nz)
 setcellsize(cell_size_x, cell_size_y, cell_size_z)
 
-
-
-
-// ****** Importing current, field and initial magnetization distributions ******
-
-// Importing starting magnetization of free layer
+// Importing starting magnetization for free layer
 m.loadfile("m_free_start_data.ovf")
 
-// Importing tunnel current density distribution
-J.add(LoadFile("j_tunnel_data.ovf"), 1)
-
-// Importing tunnel current Oersted field distribution
-B_ext.add(LoadFile("B_oe_data.ovf"), 1)
-
 // Importing external field distribution
-B_ext.add(LoadFile("B_ext_data.ovf"), 1)
+B_ext_ovf := LoadFile("B_ext_data.ovf")
 
+// Running simulation
+for i_step:=0; i_step<num_quasi_static_steps; i_step++ {
 
+    // Displaying progress
+    print(sprintf("%s%05d / %05d ...\n", "computing quasi-static step ", i_step+1, num_quasi_static_steps))
 
+    // Clearing current and external field distributions
+    B_ext.RemoveExtraTerms()
+    J.RemoveExtraTerms()
 
-// ****** Running simulation ******
-//relax()
-autosave(m, t_save_step)
-run(t_total)
+    // Computing tunnel current distribution
+    mask_j_tunnel := newVectorMask(Nx, Ny, 1)
+    for i:=0; i<Nx; i++ {
+        for j:=0; j<Ny; j++ {
+            // Getting the relative angle between consecutive free and reference layer cells' local magnetization
+            m_free := m.getcell(i,j,0)
+            m_free_x := m_free.X()
+            m_free_y := m_free.Y()
+            m_free_z := m_free.Z()
+            m_reference_x := m_reference.X()
+            m_reference_y := m_reference.Y()
+            m_reference_z := m_reference.Z()
+            cos_m_free_ref := (m_free_x * m_reference_x + m_free_y * m_reference_y + m_free_z * m_reference_z) / (sqrt(pow(m_free_x,2) + pow(m_free_y,2) + pow(m_free_z,2)) * sqrt(pow(m_reference_x,2) + pow(m_reference_y,2) + pow(m_reference_z,2)))
+            // Approximating resistance of mini MTJ formed by two consecutive cells
+            R_p_cell := R_p * (Nx * Ny)
+            R_ap_cell := R_ap * (Nx * Ny)
+            R_cell := R_p_cell + (R_ap_cell - R_p_cell) / 2 * (1 - cos_m_free_ref)
+            // Computing tunnel current density from mini MTJ resistance
+            I_cell := V_bias / R_cell
+            j_cell := I_cell / (cell_size_x * cell_size_y)
+            // Saving tunnel current density in mask
+            mask_j_tunnel.setVector(i, j, 0, vector(0, 0, j_cell))
+        }
+    }
+    J.add(mask_j_tunnel, 1)
 
-// Saving results
-saveas(m, "m_free_start_data")
+    // Computing Oersted field distribution
+    mask_B_oe := newVectorMask(Nx, Ny, 1)
+    // Looping through each cell and computing the total Oersted field at it's position as the sum of contributions across all other cells 
+    for i:=0; i<Nx; i++ {
+        for j:=0; j<Ny; j++ {
+            B_oe_total_x := 0.0
+            B_oe_total_y := 0.0
+            for m:=0; m<Nx; m++ {
+                for n:=0; n<Ny; n++{
+                    if (i != m) && (j != n) {
+                        // Getting coordinates of both cells
+                        //r_current_cell := index2coord(i, j, 0)
+                        //r_contributing_cell := index2coord(m, n, 0)
+                        //x_current_cell := r_current_cell.X()
+                        //y_current_cell := r_current_cell.Y()
+                        //x_contributing_cell := r_contributing_cell.X()
+                        //y_contributing_cell := r_contributing_cell.Y()
+                        //dx := x_current_cell - x_contributing_cell
+                        //dy := y_current_cell - y_contributing_cell
+
+                        dx := Nx * cell_size_x * (i - m)
+                        dy := Ny * cell_size_y * (j - n)
+
+                        j_contributing_cell := mask_j_tunnel.get(2, m, n, 0)
+
+                        I_contributing_cell := j_contributing_cell * cell_size_x * cell_size_y
+                        // Computing Oersted field contribution from cell
+                        B_oe_x := mu0_SI * I_contributing_cell / (2 * pi * sqrt(pow(dx,2) + pow(dy,2))) * dx
+                        B_oe_y := mu0_SI * I_contributing_cell / (2 * pi * sqrt(pow(dx,2) + pow(dy,2))) * (-dy)
+                        // Adding cell contibution to total
+                        B_oe_total_x += B_oe_x
+                        B_oe_total_y += B_oe_y
+                    }
+                }
+            }
+            // Saving Oersted field vector in mask
+            mask_B_oe.setVector(i, j, 0, vector(B_oe_total_x, B_oe_total_y, 0.0))
+        }
+    }
+    B_ext.add(mask_B_oe, 1)
+
+    // Applying external field
+    B_ext.add(B_ext_ovf, 1)
+
+    // Running quasi-static calculations with fixed tunnel current distribution
+    run(t_quasi_static_step)
+
+    // Saving final results of quasi-static sub-simulation
+    filename_m := sprintf("%s%05d", m_quasi_static_final_name, i_step)
+    filename_J := sprintf("%s%05d", j_tunnel_quasi_static_final_name, i_step)
+    saveas(m, filename_m)
+    saveas(J, filename_J)
+
+}

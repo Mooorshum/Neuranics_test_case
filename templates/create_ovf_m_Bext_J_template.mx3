@@ -1,14 +1,16 @@
 OutputFormat = OVF2_TEXT
 
+Msat = 
+Aex = 
+alpha = 
+
 Nx :=
 Ny :=
 Nz :=
 
 SetGridSize(Nx, Ny, Nz)
 SetCellSize(1, 1, 1)
-Msat = 
-Aex = 
-alpha = 
+
 m = RandomMag()
 
 mask := newVectorMask(Nx, Ny, Nz)
