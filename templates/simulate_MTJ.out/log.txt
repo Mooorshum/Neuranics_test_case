@@ -1,0 +1,2200 @@
+//mumax 3.10 [windows_amd64 go1.11.6(gc) CUDA-11.0]
+//GPU info: NVIDIA GeForce 840M(2048MB), CUDA Driver 11.4, cc=5.0, using cc=50 PTX
+//(c) Arne Vansteenkiste, Dynamat LAB, Ghent University, Belgium
+//This is free software without any warranty. See license.txt
+//********************************************************************//
+//  If you use mumax in any work or publication,                      //
+//  we kindly ask you to cite the references in references.bib        //
+//********************************************************************//
+//output directory: templates/simulate_MTJ.out/
+OutputFormat = OVF2_Text
+EnableDemag = False
+size_x := 8e-08
+size_y := 8e-08
+size_z := 8e-08
+Nx := 16
+Ny := 16
+Nz := 1
+Msat = 1200000.0
+Aex = 1.3e-11
+alpha = 0.1
+anisU = vector(0.01, 0.99, 0)
+Ku1 = 100000.0
+lambda = 1
+Pol = 0.56
+epsilonprime = 0
+fixedlayer = vector(0, -1, 0)
+FixedLayerPosition = FIXEDLAYER_BOTTOM
+m_reference := vector(0, -1, 0)
+V_bias := 0.001
+R_p := 74.86
+R_ap := 18000.0
+t_quasi_static_step := 1e-11
+num_quasi_static_steps := 700
+mu0_SI := 1.256e-6
+m_quasi_static_final_name := "m_final_quasi_static_step_"
+j_tunnel_quasi_static_final_name := "j_tunnel_final_quasi_static_step_"
+cell_size_x := size_x / Nx
+cell_size_y := size_y / Ny
+cell_size_z := size_z / Nz
+setgridsize(Nx, Ny, Nz)
+setcellsize(cell_size_x, cell_size_y, cell_size_z)
+m.loadfile("m_free_start_data.ovf")
+B_ext_ovf := LoadFile("B_ext_data.ovf")
+for i_step := 0; i_step < num_quasi_static_steps; i_step++ {
+	print(sprintf("%s%05d / %05d ...\n", "computing quasi-static step ", i_step+1, num_quasi_static_steps))
+	B_ext.RemoveExtraTerms()
+	J.RemoveExtraTerms()
+	B_ext.add(B_ext_ovf, 1)
+	mask_j_tunnel := newVectorMask(Nx, Ny, 1)
+	for i := 0; i < Nx; i++ {
+		for j := 0; j < Ny; j++ {
+			m_free := m.getcell(i, j, 0)
+			m_free_x := m_free.X()
+			m_free_y := m_free.Y()
+			m_free_z := m_free.Z()
+			m_reference_x := m_reference.X()
+			m_reference_y := m_reference.Y()
+			m_reference_z := m_reference.Z()
+			cos_m_free_ref := (m_free_x*m_reference_x + m_free_y*m_reference_y) / (sqrt(pow(m_free_x, 2)+pow(m_free_y, 2)) * sqrt(pow(m_reference_x, 2)+pow(m_reference_y, 2)))
+			R_p_cell := R_p * (Nx * Ny)
+			R_ap_cell := R_ap * (Nx * Ny)
+			R_cell := R_p_cell + (R_ap_cell-R_p_cell)/2*(1-cos_m_free_ref)
+			I_cell := V_bias / R_cell
+			j_cell := I_cell / (cell_size_x * cell_size_y)
+			mask_j_tunnel.setVector(i, j, 0, vector(0, 0, j_cell))
+		}
+	}
+	J.add(mask_j_tunnel, 1)
+	mask_B_oe := newVectorMask(Nx, Ny, 1)
+	for i := 0; i < Nx; i++ {
+		for j := 0; j < Ny; j++ {
+			B_oe_total_x := 0.0
+			B_oe_total_y := 0.0
+			for k := 0; k < Nx; k++ {
+				for l := 0; l < Ny; l++ {
+					if (i != k) && (j != l) {
+						dx := Nx * cell_size_x * (i - k)
+						dy := Ny * cell_size_y * (j - l)
+						j_contributing_cell := mask_j_tunnel.get(2, k, l, 0)
+						I_contributing_cell := j_contributing_cell * cell_size_x * cell_size_y
+						B_oe_x := mu0_SI * I_contributing_cell / (2 * pi * sqrt(pow(dx, 2)+pow(dy, 2))) * dx
+						B_oe_y := mu0_SI * I_contributing_cell / (2 * pi * sqrt(pow(dx, 2)+pow(dy, 2))) * (-dy)
+						B_oe_total_x += B_oe_x
+						B_oe_total_y += B_oe_y
+					}
+				}
+			}
+			mask_B_oe.setVector(i, j, 0, vector(B_oe_total_x, B_oe_total_y, 0.0))
+		}
+	}
+	B_ext.add(mask_B_oe, 1)
+	run(t_quasi_static_step)
+	filename_m := sprintf("%s%05d", m_quasi_static_final_name, i_step)
+	filename_J := sprintf("%s%05d", j_tunnel_quasi_static_final_name, i_step)
+	saveas(m, filename_m)
+	saveas(J, filename_J)
+}
+//computing quasi-static step %!d(float64=00001) / 00700 ...\n
+//computing quasi-static step %!d(float64=00002) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00003) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00004) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00005) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00006) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00007) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00008) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00009) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00010) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00011) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00012) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00013) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00014) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00015) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00016) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00017) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00018) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00019) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00020) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00021) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00022) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00023) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00024) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00025) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00026) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00027) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00028) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00029) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00030) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00031) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00032) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00033) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00034) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00035) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00036) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00037) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00038) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00039) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00040) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00041) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00042) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00043) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00044) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00045) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00046) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00047) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00048) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00049) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00050) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00051) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00052) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00053) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00054) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00055) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00056) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00057) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00058) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00059) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00060) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00061) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00062) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00063) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00064) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00065) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00066) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00067) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00068) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00069) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00070) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00071) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00072) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00073) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00074) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00075) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00076) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00077) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00078) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00079) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00080) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00081) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00082) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00083) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00084) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00085) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00086) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00087) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00088) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00089) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00090) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00091) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00092) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00093) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00094) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00095) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00096) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00097) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00098) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00099) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00100) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00101) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00102) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00103) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00104) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00105) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00106) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00107) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00108) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00109) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00110) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00111) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00112) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00113) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00114) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00115) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00116) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00117) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00118) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00119) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00120) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00121) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00122) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00123) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00124) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00125) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00126) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00127) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00128) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00129) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00130) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00131) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00132) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00133) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00134) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00135) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00136) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00137) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00138) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00139) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00140) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00141) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00142) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00143) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00144) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00145) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00146) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00147) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00148) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00149) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00150) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00151) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00152) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00153) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00154) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00155) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00156) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00157) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00158) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00159) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00160) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00161) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00162) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00163) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00164) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00165) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00166) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00167) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00168) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00169) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00170) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00171) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00172) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00173) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00174) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00175) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00176) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00177) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00178) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00179) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00180) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00181) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00182) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00183) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00184) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00185) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00186) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00187) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00188) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00189) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00190) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00191) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00192) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00193) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00194) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00195) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00196) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00197) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00198) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00199) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00200) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00201) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00202) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00203) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00204) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00205) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00206) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00207) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00208) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00209) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00210) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00211) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00212) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00213) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00214) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00215) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00216) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00217) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00218) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00219) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00220) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00221) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00222) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00223) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00224) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00225) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00226) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00227) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00228) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00229) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00230) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00231) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00232) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00233) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00234) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00235) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00236) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00237) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00238) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00239) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00240) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00241) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00242) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00243) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00244) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00245) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00246) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00247) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00248) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00249) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00250) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00251) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00252) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00253) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00254) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00255) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00256) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00257) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00258) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00259) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00260) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00261) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00262) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00263) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00264) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00265) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00266) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00267) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00268) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00269) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00270) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00271) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00272) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00273) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00274) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00275) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00276) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00277) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00278) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00279) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00280) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00281) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00282) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00283) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00284) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00285) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00286) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00287) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00288) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00289) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00290) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00291) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00292) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00293) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00294) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00295) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00296) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00297) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00298) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00299) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00300) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00301) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00302) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00303) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00304) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00305) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00306) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00307) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00308) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00309) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00310) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00311) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00312) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00313) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00314) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00315) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00316) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00317) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00318) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00319) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00320) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00321) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00322) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00323) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00324) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00325) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00326) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00327) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00328) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00329) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00330) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00331) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00332) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00333) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00334) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00335) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00336) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00337) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00338) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00339) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00340) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00341) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00342) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00343) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00344) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00345) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00346) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00347) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00348) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00349) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00350) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00351) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00352) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00353) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00354) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00355) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00356) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00357) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00358) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00359) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00360) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00361) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00362) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00363) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00364) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00365) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00366) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00367) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00368) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00369) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00370) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00371) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00372) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00373) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00374) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00375) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00376) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00377) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00378) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00379) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00380) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00381) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00382) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00383) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00384) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00385) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00386) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00387) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00388) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00389) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00390) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00391) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00392) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00393) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00394) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00395) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00396) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00397) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00398) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00399) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00400) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00401) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00402) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00403) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00404) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00405) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00406) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00407) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00408) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00409) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00410) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00411) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00412) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00413) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00414) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00415) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00416) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00417) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00418) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00419) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00420) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00421) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00422) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00423) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00424) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00425) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00426) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00427) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00428) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00429) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00430) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00431) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00432) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00433) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00434) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00435) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00436) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00437) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00438) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00439) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00440) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00441) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00442) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00443) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00444) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00445) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00446) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00447) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00448) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00449) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00450) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00451) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00452) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00453) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00454) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00455) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00456) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00457) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00458) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00459) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00460) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00461) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00462) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00463) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00464) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00465) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00466) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00467) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00468) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00469) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00470) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00471) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00472) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00473) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00474) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00475) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00476) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00477) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00478) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00479) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00480) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00481) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00482) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00483) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00484) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00485) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00486) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00487) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00488) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00489) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00490) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00491) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00492) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00493) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00494) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00495) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00496) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00497) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00498) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00499) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00500) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00501) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00502) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00503) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00504) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00505) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00506) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00507) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00508) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00509) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00510) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00511) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00512) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00513) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00514) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00515) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00516) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00517) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00518) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00519) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00520) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00521) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00522) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00523) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00524) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00525) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00526) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00527) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00528) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00529) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00530) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00531) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00532) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00533) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00534) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00535) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00536) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00537) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00538) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00539) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00540) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00541) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00542) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00543) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00544) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00545) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00546) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00547) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00548) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00549) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00550) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00551) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00552) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00553) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00554) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00555) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00556) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00557) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00558) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00559) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00560) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00561) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00562) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00563) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00564) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00565) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00566) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00567) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00568) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00569) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00570) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00571) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00572) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00573) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00574) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00575) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00576) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00577) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00578) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00579) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00580) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00581) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00582) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00583) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00584) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00585) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00586) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00587) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00588) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00589) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00590) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00591) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00592) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00593) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00594) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00595) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00596) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00597) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00598) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00599) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00600) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00601) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00602) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00603) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00604) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00605) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00606) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00607) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00608) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00609) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00610) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00611) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00612) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00613) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00614) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00615) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00616) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00617) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00618) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00619) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00620) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00621) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00622) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00623) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00624) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00625) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00626) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00627) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00628) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00629) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00630) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00631) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00632) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00633) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00634) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00635) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00636) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00637) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00638) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00639) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00640) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00641) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00642) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00643) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00644) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00645) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00646) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00647) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00648) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00649) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00650) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00651) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00652) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00653) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00654) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00655) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00656) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00657) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00658) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00659) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00660) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00661) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00662) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00663) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00664) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00665) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00666) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00667) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00668) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00669) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00670) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00671) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00672) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00673) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00674) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00675) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00676) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00677) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00678) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00679) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00680) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00681) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00682) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00683) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00684) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00685) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00686) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00687) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00688) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00689) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00690) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00691) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00692) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00693) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00694) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00695) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00696) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00697) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00698) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00699) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//computing quasi-static step %!d(float64=00700) / 00700 ...\n
+//REMOVING EXTRA TERMS FROM B_ext
+//REMOVING EXTRA TERMS FROM J
+//********************************************************************//
+//Please cite the following references, relevant for your simulation. //
+//See bibtex file in output folder for justification.                 //
+//********************************************************************//
+//   * Vansteenkiste et al., AIP Adv. 4, 107133 (2014).

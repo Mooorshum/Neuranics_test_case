@@ -4,12 +4,20 @@ Msat =
 Aex = 
 alpha = 
 
+size_x := 
+size_y := 
+size_z := 
+
 Nx :=
 Ny :=
 Nz :=
 
+cell_size_x := size_x / Nx
+cell_size_y := size_y / Ny
+cell_size_z := size_z / Nz
+
 SetGridSize(Nx, Ny, Nz)
-SetCellSize(1, 1, 1)
+SetCellSize(cell_size_x, cell_size_y, cell_size_z)
 
 m = RandomMag()
 

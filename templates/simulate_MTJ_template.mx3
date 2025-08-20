@@ -1,6 +1,6 @@
 OutputFormat = OVF2_Text
 
-EnableDemag = True
+EnableDemag = False
 
 // ****** Settings ******  
 
@@ -29,8 +29,8 @@ m_reference :=
 
 // Tunnel current parameters
 V_bias := 
-R_p :=
-R_ap :=
+R_p := 
+R_ap := 
 
 // Simulation time
 t_quasi_static_step := 
@@ -66,6 +66,9 @@ for i_step:=0; i_step<num_quasi_static_steps; i_step++ {
     B_ext.RemoveExtraTerms()
     J.RemoveExtraTerms()
 
+    // Applying external field
+    B_ext.add(B_ext_ovf, 1)
+
     // Computing tunnel current distribution
     mask_j_tunnel := newVectorMask(Nx, Ny, 1)
     for i:=0; i<Nx; i++ {
@@ -78,7 +81,7 @@ for i_step:=0; i_step<num_quasi_static_steps; i_step++ {
             m_reference_x := m_reference.X()
             m_reference_y := m_reference.Y()
             m_reference_z := m_reference.Z()
-            cos_m_free_ref := (m_free_x * m_reference_x + m_free_y * m_reference_y + m_free_z * m_reference_z) / (sqrt(pow(m_free_x,2) + pow(m_free_y,2) + pow(m_free_z,2)) * sqrt(pow(m_reference_x,2) + pow(m_reference_y,2) + pow(m_reference_z,2)))
+            cos_m_free_ref := (m_free_x * m_reference_x + m_free_y * m_reference_y) / (sqrt(pow(m_free_x,2) + pow(m_free_y,2)) * sqrt(pow(m_reference_x,2) + pow(m_reference_y,2)))
             // Approximating resistance of mini MTJ formed by two consecutive cells
             R_p_cell := R_p * (Nx * Ny)
             R_ap_cell := R_ap * (Nx * Ny)
@@ -99,24 +102,12 @@ for i_step:=0; i_step<num_quasi_static_steps; i_step++ {
         for j:=0; j<Ny; j++ {
             B_oe_total_x := 0.0
             B_oe_total_y := 0.0
-            for m:=0; m<Nx; m++ {
-                for n:=0; n<Ny; n++{
-                    if (i != m) && (j != n) {
-                        // Getting coordinates of both cells
-                        //r_current_cell := index2coord(i, j, 0)
-                        //r_contributing_cell := index2coord(m, n, 0)
-                        //x_current_cell := r_current_cell.X()
-                        //y_current_cell := r_current_cell.Y()
-                        //x_contributing_cell := r_contributing_cell.X()
-                        //y_contributing_cell := r_contributing_cell.Y()
-                        //dx := x_current_cell - x_contributing_cell
-                        //dy := y_current_cell - y_contributing_cell
-
-                        dx := Nx * cell_size_x * (i - m)
-                        dy := Ny * cell_size_y * (j - n)
-
-                        j_contributing_cell := mask_j_tunnel.get(2, m, n, 0)
-
+            for k:=0; k<Nx; k++ {
+                for l:=0; l<Ny; l++{
+                    if (i != k) && (j != l) {
+                        dx := Nx * cell_size_x * (i - k)
+                        dy := Ny * cell_size_y * (j - l)
+                        j_contributing_cell := mask_j_tunnel.get(2, k, l, 0)
                         I_contributing_cell := j_contributing_cell * cell_size_x * cell_size_y
                         // Computing Oersted field contribution from cell
                         B_oe_x := mu0_SI * I_contributing_cell / (2 * pi * sqrt(pow(dx,2) + pow(dy,2))) * dx
@@ -132,9 +123,6 @@ for i_step:=0; i_step<num_quasi_static_steps; i_step++ {
         }
     }
     B_ext.add(mask_B_oe, 1)
-
-    // Applying external field
-    B_ext.add(B_ext_ovf, 1)
 
     // Running quasi-static calculations with fixed tunnel current distribution
     run(t_quasi_static_step)
